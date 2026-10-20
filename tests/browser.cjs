@@ -122,14 +122,14 @@ const server = createServer(async (req, res) => {
             await page.locator('#text-input').press('Escape');
             assert.equal(await page.locator('#count-chars-all').innerText(), '0');
         });
-        await check('QR generator renders locally, saves PNG and invalidates edited output', async () => {
+        await check('2D code generator renders locally, saves PNG and invalidates edited output', async () => {
             await page.goto(base + '/2d-code-generator/');
             await page.locator('#qr-input').fill('https://example.com/ 日本語');
-            await page.getByRole('button', { name: 'QRコードを生成', exact: true }).click();
-            assert.equal(await page.getByRole('img', { name: '生成したQRコード' }).count(), 1);
+            await page.getByRole('button', { name: '二次元コードを生成', exact: true }).click();
+            assert.equal(await page.getByRole('img', { name: '生成した二次元コード' }).count(), 1);
             const downloadPromise = page.waitForEvent('download');
             await page.getByRole('button', { name: 'PNGを保存' }).click();
-            assert.equal((await downloadPromise).suggestedFilename(), 'qrcode.png');
+            assert.equal((await downloadPromise).suggestedFilename(), '2d-code.png');
             await page.locator('#qr-input').fill('changed');
             assert.equal(await page.locator('#save-png').isDisabled(), true);
         });

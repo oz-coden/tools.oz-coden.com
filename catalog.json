@@ -1,0 +1,11 @@
+{
+  "sharedUi": {"repository": "oz-coden/oz-coden.com-ui-web", "ref": "main"},
+  "tools": [
+    {"slug": "webpage-ide", "repository": "oz-coden/simple-web-ide-for-webpage", "ref": "main", "directory": "webpage-ide", "title": "Web IDE", "category": "DEVELOPER TOOLS", "description": "HTML・CSS・JavaScriptを編集して、すぐにプレビュー。"},
+    {"slug": "dummy-text-generator", "repository": "oz-coden/dummy-text-generator-web", "ref": "main", "directory": ".", "title": "ダミーテキストジェネレーター", "category": "TEXT TOOLS", "description": "指定した文字数や回数に合わせてダミー文章を生成。"},
+    {"slug": "json-visualizer", "repository": "oz-coden/json-visualizer-web", "ref": "main", "directory": ".", "title": "JSON Path Visualizer", "category": "DATA TOOLS", "description": "JSONの構造とJavaScriptでのアクセスパスを確認。"},
+    {"slug": "nexus-search", "repository": "oz-coden/nexus-search-web", "ref": "main", "directory": ".", "title": "Nexus Search", "category": "SEARCH TOOLS", "description": "検索・詳細検索・ブックマークをひとつの画面で。"},
+    {"slug": "random-re-visualizer", "repository": "oz-coden/random-re-visualizer-web", "ref": "main", "directory": ".", "title": "Random RE Visualizer", "category": "DEVELOPER TOOLS", "description": "正規表現に一致するサンプル文字列をランダム生成。"},
+    {"slug": "text-analyzer", "repository": "oz-coden/text-analyzer-web", "ref": "main", "directory": ".", "title": "文字数カウント", "category": "TEXT TOOLS", "description": "文字数・行数・段落数・読了時間をまとめて集計。"}
+  ]
+}

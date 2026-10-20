@@ -1,0 +1,55 @@
+name: Assemble, check and publish tools
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      changed: ${{ steps.assemble.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Resolve source revisions and assemble static files
+        id: assemble
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/build.mjs --skip-unchanged
+      - if: steps.assemble.outputs.changed == 'true'
+        run: npm ci
+      - if: steps.assemble.outputs.changed == 'true'
+        run: npx playwright install --with-deps --only-shell chromium
+      - if: steps.assemble.outputs.changed == 'true'
+        run: npm test
+      - if: steps.assemble.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+  publish:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment

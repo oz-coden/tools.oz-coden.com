@@ -3,6 +3,7 @@ const { createServer } = require('node:http');
 const { readFile, mkdir } = require('node:fs/promises');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const catalog = require('../catalog.json');
 const root = path.resolve(__dirname, '../_site');
 const monacoRoot = path.dirname(require.resolve('monaco-editor/package.json'));
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
@@ -32,9 +33,9 @@ const server = createServer(async (req, res) => {
         page.setDefaultTimeout(15000);
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
-        await check('index links to all six applications', async () => {
+        await check('index links to every catalog application', async () => {
             await page.goto(base);
-            assert.equal(await page.locator('.tool-card').count(), 6);
+            assert.equal(await page.locator('.tool-card').count(), catalog.tools.length);
             for (const link of await page.locator('.tool-card').all()) assert.equal((await page.request.get(new URL(await link.getAttribute('href'), base).href)).status(), 200);
         });
         await check('dummy text generation handles presets, repeat mode, Unicode and limits', async () => {
@@ -121,6 +122,17 @@ const server = createServer(async (req, res) => {
             await page.locator('#text-input').press('Escape');
             assert.equal(await page.locator('#count-chars-all').innerText(), '0');
         });
+        await check('QR generator renders locally, saves PNG and invalidates edited output', async () => {
+            await page.goto(base + '/2d-code-generator/');
+            await page.locator('#qr-input').fill('https://example.com/ 日本語');
+            await page.getByRole('button', { name: 'QRコードを生成', exact: true }).click();
+            assert.equal(await page.getByRole('img', { name: '生成したQRコード' }).count(), 1);
+            const downloadPromise = page.waitForEvent('download');
+            await page.getByRole('button', { name: 'PNGを保存' }).click();
+            assert.equal((await downloadPromise).suggestedFilename(), 'qrcode.png');
+            await page.locator('#qr-input').fill('changed');
+            assert.equal(await page.locator('#save-png').isDisabled(), true);
+        });
         await check('Web IDE runs Monaco, scripts and styles inside the sandbox', async () => {
             await page.goto(base + '/webpage-ide/');
             await page.waitForFunction(() => typeof editor !== 'undefined' && editor);
@@ -135,7 +147,7 @@ const server = createServer(async (req, res) => {
         await check('shared themes persist across tools and every page fits desktop and mobile', async () => {
             await page.goto(base);
             await page.getByRole('button', { name: 'ダークテーマに切り替え' }).click();
-            const routes = ['', 'dummy-text-generator/', 'json-visualizer/', 'nexus-search/', 'random-re-visualizer/', 'text-analyzer/', 'webpage-ide/'];
+            const routes = ['', ...catalog.tools.map(tool => tool.slug + '/')];
             for (const width of [1280, 390]) {
                 await page.setViewportSize({ width, height: 900 });
                 for (const route of routes) {

@@ -133,6 +133,18 @@ const server = createServer(async (req, res) => {
             await page.locator('#qr-input').fill('changed');
             assert.equal(await page.locator('#save-png').isDisabled(), true);
         });
+        await check('recipe converter produces KubeJS and requires IDs for replacement', async () => {
+            await page.goto(base + '/minecraft-datapack-to-kubejs/');
+            await page.locator('.paste-details summary').click();
+            await page.getByRole('button', { name: 'サンプルを入力', exact: true }).click();
+            await page.getByRole('button', { name: '貼り付けから変換', exact: true }).click();
+            assert.match(await page.locator('#merged-output').inputValue(), /event.shaped/);
+            assert.doesNotMatch(await page.locator('#merged-output').inputValue(), /event.remove/);
+            await page.locator('#replace').check();
+            assert.equal(await page.locator('#download-all').isDisabled(), true);
+            await page.getByRole('button', { name: '変換する', exact: true }).click();
+            assert.equal(await page.locator('#download-all').isDisabled(), true);
+        });
         await check('Web IDE runs Monaco, scripts and styles inside the sandbox', async () => {
             await page.goto(base + '/webpage-ide/');
             await page.waitForFunction(() => typeof editor !== 'undefined' && editor);

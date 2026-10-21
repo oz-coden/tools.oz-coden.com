@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { createServer } = require('node:http');
 const { readFile, mkdir } = require('node:fs/promises');
 const path = require('node:path');
+const { createHash } = require('node:crypto');
 const { chromium } = require('playwright');
 const catalog = require('../catalog.json');
 const root = path.resolve(__dirname, '../_site');
@@ -38,6 +39,12 @@ const server = createServer(async (req, res) => {
             assert.equal(await page.locator('.tool-card').count(), catalog.tools.length);
             for (const link of await page.locator('.tool-card').all()) assert.equal((await page.request.get(new URL(await link.getAttribute('href'), base).href)).status(), 200);
             for (const route of ['', ...catalog.tools.map(tool => tool.slug + '/')]) {
+                const html = await readFile(path.join(root, route, 'index.html'), 'utf8');
+                for (const match of html.matchAll(/(?:src|href)=["']([^"'?]+\.(?:js|css))\?v=([a-f0-9]{12})["']/g)) {
+                    const content = await readFile(path.join(root, route, match[1]));
+                    assert.equal(match[2], createHash('sha256').update(content).digest('hex').slice(0, 12));
+                }
+                assert.match(html, /script\.js\?v=[a-f0-9]{12}|ui\.js\?v=[a-f0-9]{12}/);
                 for (const file of ['LICENSE', 'vendor/ui/LICENSE']) {
                     const response = await page.request.get(base + '/' + route + file);
                     assert.equal(response.status(), 200);

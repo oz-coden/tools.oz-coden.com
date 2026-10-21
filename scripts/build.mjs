@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir, rm, cp, readdir } from 'node:fs/promises';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -82,6 +82,26 @@ await writeFile(join(output, 'index.html'), (await readFile(join(root, 'index.ht
 await cp(join(root, 'style.css'), join(output, 'style.css'));
 await cp(join(root, 'LICENSE'), join(output, 'LICENSE'));
 await ui(output);
+// Version local HTML asset references so cached code cannot be paired with a new page.
+async function versionAssets(directory) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const file = join(directory, entry.name);
+        if (entry.isDirectory()) { await versionAssets(file); continue; }
+        if (!entry.isFile() || !entry.name.endsWith('.html')) continue;
+        let html = await readFile(file, 'utf8');
+        const references = [...html.matchAll(/\b(?:src|href)\s*=\s*(["'])([A-Za-z0-9_.\/-]+\.(?:css|js))\1/g)];
+        for (const match of references) {
+            const asset = match[2];
+            if (asset.startsWith('/')) continue;
+            const target = resolve(directory, asset);
+            if (!target.startsWith(output + sep)) continue;
+            const hash = createHash('sha256').update(await readFile(target)).digest('hex').slice(0, 12);
+            html = html.replace(match[0], match[0].replace(asset, `${asset}?v=${hash}`));
+        }
+        await writeFile(file, html);
+    }
+}
+await versionAssets(output);
 await writeFile(join(output, 'build-info.json'), JSON.stringify(info, null, 2) + '\n');
 await writeFile(join(output, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n');
 await writeFile(join(output, '.nojekyll'), '');

@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '17 * * * *'
+concurrency:
+  group: tools-pages-main
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -28,6 +31,8 @@ jobs:
         run: npm ci
       - if: steps.assemble.outputs.changed == 'true'
         run: npx playwright install --with-deps --only-shell chromium
+      - if: steps.assemble.outputs.changed == 'true'
+        run: npm run test:sources
       - if: steps.assemble.outputs.changed == 'true'
         run: npm test
       - if: steps.assemble.outputs.changed == 'true'

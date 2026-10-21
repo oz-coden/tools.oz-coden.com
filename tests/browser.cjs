@@ -37,6 +37,13 @@ const server = createServer(async (req, res) => {
             await page.goto(base);
             assert.equal(await page.locator('.tool-card').count(), catalog.tools.length);
             for (const link of await page.locator('.tool-card').all()) assert.equal((await page.request.get(new URL(await link.getAttribute('href'), base).href)).status(), 200);
+            for (const route of ['', ...catalog.tools.map(tool => tool.slug + '/')]) {
+                for (const file of ['LICENSE', 'vendor/ui/LICENSE']) {
+                    const response = await page.request.get(base + '/' + route + file);
+                    assert.equal(response.status(), 200);
+                    assert.match(await response.text(), /Permission is hereby granted/);
+                }
+            }
         });
         await check('dummy text generation handles presets, repeat mode, Unicode and limits', async () => {
             await page.goto(base + '/dummy-text-generator/');
@@ -107,7 +114,7 @@ const server = createServer(async (req, res) => {
             await page.waitForFunction(() => document.getElementById('output-area').textContent.startsWith('候補 1:'));
             const lines = (await page.locator('#output-area').innerText()).split('\n');
             assert.equal(lines.length, 5);
-            for (const line of lines) assert.match(line.replace(/^候補 \d: /, ''), /^[a-zA-Z0-9]{5,10}$/);
+            for (const line of lines) assert.match(JSON.parse(line.replace(/^候補 \d: /, '')), /^[a-zA-Z0-9]{5,10}$/);
             for (const pattern of ['(', 'a{1000000000}', '(?!)']) {
                 await page.locator('#regex-pattern').fill(pattern);
                 await page.getByRole('button', { name: '一致する候補を生成する' }).click();
@@ -133,6 +140,69 @@ const server = createServer(async (req, res) => {
             await page.locator('#qr-input').fill('changed');
             assert.equal(await page.locator('#save-png').isDisabled(), true);
         });
+        await check('JSON preserves numeric source text and access paths, and reset cancels file reads', async () => {
+            await page.goto(base + '/json-visualizer/');
+            await page.locator('#jsonInput').fill('{"large":9007199254740993,"overflow":1e400,"decimal":1.0000000000000001}');
+            await page.getByRole('button', { name: '解析する', exact: true }).click();
+            const output = await page.locator('#outputArea').innerText();
+            assert.match(output, /data.large = 9007199254740993/);
+            assert.match(output, /data.overflow = 1e400/);
+            assert.match(output, /data.decimal = 1.0000000000000001/);
+            await page.evaluate(() => { const Original = FileReader; window.FileReader = class extends Original { readAsText(file) { setTimeout(() => super.readAsText(file), 150); } }; });
+            await page.locator('#jsonFile').setInputFiles({ name: 'delayed.json', mimeType: 'application/json', buffer: Buffer.from('{"old":true}') });
+            await page.getByRole('button', { name: 'リセット', exact: true }).click();
+            await page.waitForTimeout(250);
+            assert.equal(await page.locator('#jsonInput').inputValue(), '');
+            assert.equal(await page.locator('#outputArea').innerText(), '');
+            assert.equal(await page.locator('#jsonFile').evaluate(el => el.files.length), 0);
+            await page.locator('#jsonFile').setInputFiles({ name: 'delayed.json', mimeType: 'application/json', buffer: Buffer.from('{"old":true}') });
+            await page.locator('#jsonInput').fill('{"new":true}');
+            await page.waitForTimeout(250);
+            assert.equal(await page.locator('#jsonInput').inputValue(), '{"new":true}');
+            await page.locator('#jsonInput').fill('['.repeat(20000) + '1' + ']'.repeat(20000));
+            await page.getByRole('button', { name: '解析する', exact: true }).click();
+            assert.match(await page.locator('#outputArea').innerText(), /深さ100で省略/);
+            await page.evaluate(() => {
+                const nativeParse = JSON.parse;
+                JSON.parse = (text, reviver) => nativeParse(text, reviver && function (key, value) { return reviver.call(this, key, value); });
+            });
+            await page.locator('#jsonInput').fill('{"large":9007199254740993,"overflow":1e400}');
+            await page.getByRole('button', { name: '解析する', exact: true }).click();
+            assert.match(await page.locator('#outputArea').innerText(), /data.large = ≈ 9007199254740992/);
+            assert.match(await page.locator('#outputArea').innerText(), /数値範囲外/);
+            assert.match(await page.locator('#json-status').innerText(), /概算表示/);
+        });
+        await check('Nexus recovers from a whitespace bookmark title without editing a valid URL', async () => {
+            await page.goto(base + '/nexus-search/');
+            await page.locator('#add_bookmark_btn').click();
+            await page.locator('#modal_title').fill('   '); await page.locator('#modal_url').fill('https://example.com/');
+            await page.getByRole('button', { name: '保存', exact: true }).click();
+            assert.equal(await page.locator('#modal_url').evaluate(el => el.checkValidity()), true);
+            await page.locator('#modal_title').fill('Recovered bookmark');
+            await page.getByRole('button', { name: '保存', exact: true }).click();
+            assert.equal(await page.locator('#bookmark_modal').isVisible(), false);
+            assert.equal(await page.getByRole('link', { name: 'Recovered bookmark', exact: true }).count(), 1);
+        });
+        await check('text counts ignore whitespace-only sentence and paragraph fragments', async () => {
+            await page.goto(base + '/text-analyzer/');
+            await page.locator('#text-input').fill('こんにちは。\n');
+            assert.equal(await page.locator('#count-sentences').innerText(), '1');
+            await page.locator('#text-input').fill('   \n\t');
+            assert.equal(await page.locator('#count-sentences').innerText(), '0');
+            assert.equal(await page.locator('#count-paragraphs').innerText(), '0');
+        });
+        await check('empty custom text is rejected and Enter submits valid text', async () => {
+            await page.goto(base + '/dummy-text-generator/');
+            await page.locator('#textSource').selectOption('custom');
+            await page.locator('#customString').fill('');
+            await page.getByRole('button', { name: 'テキストを生成する' }).click();
+            assert.match(await page.locator('#tool-status').innerText(), /入力してください/);
+            assert.equal(await page.locator('#outputText').inputValue(), '');
+            assert.equal(await page.locator('#copyBtn').isDisabled(), true);
+            await page.locator('#customString').fill('日本語'); await page.locator('#countValue').fill('4');
+            await page.locator('#countValue').press('Enter');
+            assert.equal(await page.locator('#outputText').inputValue(), '日本語日');
+        });
         await check('recipe converter produces KubeJS and requires IDs for replacement', async () => {
             await page.goto(base + '/minecraft-datapack-to-kubejs/');
             await page.locator('.paste-details summary').click();
@@ -148,6 +218,8 @@ const server = createServer(async (req, res) => {
         await check('Web IDE runs Monaco, scripts and styles inside the sandbox', async () => {
             await page.goto(base + '/webpage-ide/');
             await page.waitForFunction(() => typeof editor !== 'undefined' && editor);
+            assert.equal(await page.locator('#preview').isVisible(), false);
+            await page.locator('#auto-preview').check();
             await page.frameLocator('#preview').getByRole('heading', { name: 'h1要素' }).waitFor();
             assert.equal(await page.locator('#preview').getAttribute('sandbox'), 'allow-scripts allow-forms allow-modals');
             await page.getByRole('button', { name: 'style.css', exact: true }).click();
@@ -160,7 +232,7 @@ const server = createServer(async (req, res) => {
             await page.goto(base);
             await page.getByRole('button', { name: 'ダークテーマに切り替え' }).click();
             const routes = ['', ...catalog.tools.map(tool => tool.slug + '/')];
-            for (const width of [1280, 390]) {
+            for (const width of [1280, 390, 320]) {
                 await page.setViewportSize({ width, height: 900 });
                 for (const route of routes) {
                     await page.goto(base + '/' + route);

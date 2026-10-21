@@ -22,11 +22,13 @@
 1. `catalog.json` の各 `ref` をコミットSHAに解決します。
 2. そのSHAのソースから、公開用のHTML・CSS・JSなどを `_site/<slug>/` へコピーします。
 3. 全ツールの `vendor/ui/` を、同一の共通UIコミットの配布物へそろえます。
-4. ブラウザで機能とモバイル表示を検査し、成功した成果物をPagesへ公開します。
+4. 各ソースの専用テストと、全ツールのブラウザ統合検査を実行し、成功した成果物をPagesへ公開します。ソースと共通UIのLICENSEも配布物へ含めます。
 
 `build-info.json` に公開元のコミットを、各 `shared-ui.json` にUIのコミットとハッシュを記録します。`ref` にコミットSHAを指定すれば固定版の公開もできます。
 
 このリポジトリの `main` へのpushと、Actionsの **Run workflow** で公開処理が動きます。各ソースの更新は毎時17分の定期実行でも検出し、変更がある場合だけ検査・公開します。GitHubの定期実行には遅延があり、無活動期間が長い公開リポジトリでは停止する場合があります。すぐ反映したい場合はRun workflowを実行してください。
+
+公開処理全体を直列化し、新しい実行が始まった場合は古い実行を取り消します。古いソースのビルドが後から公開されることを防ぎます。
 
 別リポジトリへの書き込みトークンや追加のSecretは使いません。ソースは公開リポジトリから取得します。
 
@@ -42,10 +44,15 @@ Node.js 22以降、Git、`tar` が必要です。
 npm ci
 node scripts/build.mjs
 npx playwright install chromium
+npm run test:sources
 npm test
 python -m http.server 8000 --directory _site
 ```
 
 最後のコマンドにはPython 3が必要です。`http://localhost:8000/` を開いて確認できます。公開済みの配布ファイルを閲覧するだけなら、これらの開発用依存関係は不要です。
 
-すでに各リポジトリを取得してある場合は、リポジトリ名をサブディレクトリ名としてそろえ、`node scripts/build.mjs --source-root ../sources` で手元のソースを組み立てられます。
+すでに各リポジトリを取得してある場合は、リポジトリ名をサブディレクトリ名としてそろえ、`node scripts/build.mjs --source-root ../sources` で手元のソースを組み立てられます。専用テストにも同じ取得元を使うには、`npm run test:sources -- --source-root ../sources`を実行します。専用テストはWeb IDEのZIP・復旧、二次元コードの画像復号、レシピ変換などを検査します。ブラウザ検査はChromiumで実行します。
+
+## LICENSE
+
+This project is released under the [MIT License](LICENSE). 同梱した各ツールと共通UIのLICENSE・第三者ライブラリの表記も配布物に保持します。

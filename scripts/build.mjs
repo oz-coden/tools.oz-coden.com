@@ -53,9 +53,9 @@ const uiDirectory = join(checkouts[0], 'assets');
 async function ui(target) {
     await mkdir(join(target, 'vendor', 'ui'), { recursive: true });
     const files = {};
-    for (const name of ['ui.css', 'ui.js']) {
-        await cp(join(uiDirectory, name), join(target, 'vendor', 'ui', name));
-        files[name] = createHash('sha256').update(await readFile(join(uiDirectory, name))).digest('hex');
+    for (const name of ['ui.css', 'ui.js', 'LICENSE']) {
+        await cp(name === 'LICENSE' ? join(checkouts[0], 'LICENSE') : join(uiDirectory, name), join(target, 'vendor', 'ui', name));
+        files[name] = createHash('sha256').update(await readFile(join(target, 'vendor', 'ui', name))).digest('hex');
     }
     await writeFile(join(target, 'shared-ui.json'), JSON.stringify({ repository: catalog.sharedUi.repository, commit: revisions[0], files }, null, 2) + '\n');
 }
@@ -65,7 +65,7 @@ async function copyPublic(from, to) {
     for (const entry of await readdir(from, { withFileTypes: true })) {
         if (entry.name.startsWith('.') || excluded.has(entry.name)) continue;
         if (entry.isDirectory()) await copyPublic(join(from, entry.name), join(to, entry.name));
-        else if (entry.isFile() && /\.(?:html|css|js|json|txt|svg|png|jpe?g|webp|ico|woff2?)$/i.test(entry.name)) await cp(join(from, entry.name), join(to, entry.name));
+        else if (entry.isFile() && (entry.name === 'LICENSE' || /\.(?:html|css|js|json|txt|svg|png|jpe?g|webp|ico|woff2?)$/i.test(entry.name))) await cp(join(from, entry.name), join(to, entry.name));
     }
 }
 for (let i = 0; i < catalog.tools.length; i++) {
@@ -73,12 +73,14 @@ for (let i = 0; i < catalog.tools.length; i++) {
     if (!/^[a-z0-9-]+$/.test(item.slug)) throw new Error('Invalid tool slug');
     const destination = join(output, item.slug);
     await copyPublic(join(checkouts[i + 1], item.directory), destination);
+    if (item.directory !== '.') await cp(join(checkouts[i + 1], 'LICENSE'), join(destination, 'LICENSE'));
     await ui(destination);
 }
 const escape = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const cards = catalog.tools.map(item => `<a class="tool-card ui-panel" href="${item.slug}/"><span class="ui-eyebrow">${escape(item.category)}</span><h2>${escape(item.title)} <span aria-hidden="true">↗</span></h2><p>${escape(item.description)}</p></a>`).join('\n');
 await writeFile(join(output, 'index.html'), (await readFile(join(root, 'index.html'), 'utf8')).replace('<!-- TOOL_CARDS -->', cards));
 await cp(join(root, 'style.css'), join(output, 'style.css'));
+await cp(join(root, 'LICENSE'), join(output, 'LICENSE'));
 await ui(output);
 await writeFile(join(output, 'build-info.json'), JSON.stringify(info, null, 2) + '\n');
 await writeFile(join(output, 'catalog.json'), JSON.stringify(catalog, null, 2) + '\n');

@@ -8,6 +8,7 @@
     {"slug": "random-re-visualizer", "repository": "oz-coden/random-re-visualizer-web", "ref": "main", "directory": ".", "title": "Random RE Visualizer", "category": "DEVELOPER TOOLS", "description": "正規表現に一致するサンプル文字列をランダム生成。"},
     {"slug": "text-analyzer", "repository": "oz-coden/text-analyzer-web", "ref": "main", "directory": ".", "title": "文字数カウント", "category": "TEXT TOOLS", "description": "文字数・行数・段落数・読了時間をまとめて集計。"},
     {"slug": "2d-code-generator", "repository": "oz-coden/2d-code-generator-web", "ref": "main", "directory": ".", "title": "二次元コードジェネレーター", "category": "IMAGE TOOLS", "description": "テキストやURLを二次元コードに。PNG・SVG保存と印刷に対応。"},
-    {"slug": "minecraft-datapack-to-kubejs", "repository": "oz-coden/minecraft-datapack-to-kubejs-web", "ref": "main", "directory": ".", "title": "レシピJSON → KubeJS", "category": "DEVELOPER TOOLS", "description": "データパックのレシピJSONを、KubeJSスクリプトへ一括変換。"}
+    {"slug": "minecraft-datapack-to-kubejs", "repository": "oz-coden/minecraft-datapack-to-kubejs-web", "ref": "main", "directory": ".", "title": "レシピJSON → KubeJS", "category": "DEVELOPER TOOLS", "description": "データパックのレシピJSONを、KubeJSスクリプトへ一括変換。"},
+    {"slug": "markdown-editor", "repository": "oz-coden/markdown-editor-web", "ref": "main", "directory": ".", "title": "Markdown Editor", "category": "TEXT TOOLS", "description": "Markdownを書きながらプレビュー。ファイル保存とブラウザ内の自動保存に対応。"}
   ]
 }

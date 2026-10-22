@@ -222,6 +222,15 @@ const server = createServer(async (req, res) => {
             await page.getByRole('button', { name: '変換する', exact: true }).click();
             assert.equal(await page.locator('#download-all').isDisabled(), true);
         });
+        await check('Markdown Editor renders from its published path using the bundled worker', async () => {
+            await page.goto(base + '/markdown-editor/');
+            await page.frameLocator('#preview').getByRole('heading', { name: 'Markdown Editor', exact: true }).waitFor();
+            await page.locator('#markdown-input').fill('# Published Markdown\n\n**bold**\n\n| A | B |\n| --- | --- |\n| 1 | 2 |');
+            await page.frameLocator('#preview').getByRole('heading', { name: 'Published Markdown' }).waitFor();
+            assert.equal(await page.frameLocator('#preview').locator('table').count(), 1);
+            assert.equal(await page.frameLocator('#preview').locator('strong').innerText(), 'bold');
+            assert.ok(!(await page.locator('#preview').getAttribute('sandbox')).includes('allow-scripts'));
+        });
         await check('Web IDE runs Monaco, scripts and styles inside the sandbox', async () => {
             await page.goto(base + '/webpage-ide/');
             await page.waitForFunction(() => typeof editor !== 'undefined' && editor);
